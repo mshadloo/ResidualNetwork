@@ -10,13 +10,26 @@ from keras.initializers import glorot_uniform
 from keras.datasets import cifar10
 from keras import optimizers,utils
 import time
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train ResNet on CIFAR10.")
+    parser.add_argument('--model', nargs='?', default='',
+                        help='pretrained model')
+    parser.add_argument('--res_block_num', type = int, default=5,
+                        help='number of residual block of each stack')
+    parser.add_argument('--epochs', type=int, default=82,
+                        help='Number of epochs.')
+
+    return parser.parse_args()
 
 def resnet(input_shape = (32, 32, 3), classes = 10, n = 1):
     def residual_block(X, filters_num, f = 3, convolution_block=False):
         # channel_num
         X_shortcut = X
         if not convolution_block:
-            if tf.shape(X)[2] == filters_num:
+
+            if X.shape[3] != filters_num:
                 raise ValueError("for identical block number of filters and number of input channel must be the same")
             stride = 1
         else:
@@ -70,7 +83,7 @@ def resnet(input_shape = (32, 32, 3), classes = 10, n = 1):
 
 
 
-def main(n= 5, num_epochs = 82, model = None):
+def main(res_block_num= 5, num_epochs = 82, pretrained_model = None):
     num_classes = 10
     print("Loading data...")
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
@@ -83,7 +96,7 @@ def main(n= 5, num_epochs = 82, model = None):
     y_test = utils.to_categorical(y_test, num_classes)
     loss_train,acc_train, loss_test, acc_test = [], [] , [] ,[]
 
-    if not model:
+    if not pretrained_model:
         lr = 0.1
         print("Building model...")
         model = resnet(input_shape = (32, 32, 3), classes = 10)
@@ -121,13 +134,13 @@ def main(n= 5, num_epochs = 82, model = None):
                 K.set_value(model.optimizer.learning_rate, lr)
                 print("New LR:" + str(lr))
 
-            model.save("resnet"+str(6*n +2)+"_cifar10.h5")
+            model.save("resnet" + str(6 * res_block_num + 2) + "_cifar10.h5")
         print("lost_train:"+ loss_train)
         print("acc_train:" + acc_train)
         print("lost_test:" + loss_test)
         print("acc_test:" + loss_test)
     else:
-        model = load_model("resnet"+str(6*n +2)+"_cifar10.h5")
+        model = load_model(pretrained_model)
     preds = model.evaluate(x_test, y_test)
     print("Loss = " + str(preds[0]))
     print("Test Accuracy = " + str(preds[1]))
@@ -140,9 +153,10 @@ if __name__ == '__main__':
         print("N: Number of stacked residual building blocks per feature map (default: 5)")
         print("MODEL: saved model file to load (for validation) (default: None)")
     else:
+        args = parse_args()
         kwargs = {}
-        if len(sys.argv) > 1:
-            kwargs['n'] = int(sys.argv[1])
-        if len(sys.argv) > 2:
-            kwargs['model'] = sys.argv[2]
+        kwargs['res_block_num'] = args.res_block_num
+        kwargs['pretrained_model'] = args.model
+        kwargs['num_epochs'] = args.epochs
+
         main(**kwargs)
